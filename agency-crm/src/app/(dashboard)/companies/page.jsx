@@ -6,7 +6,17 @@ import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { CreateCompanyModal } from "@/components/admin/CreateCompanyModal";
 import { AssignAdminsModal } from "@/components/admin/AssignAdminsModal";
 
@@ -16,6 +26,9 @@ export default function CompaniesPage() {
   const [admins, setAdmins] = useState([]);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState(null);
+  const [rotateTargetCompany, setRotateTargetCompany] = useState(null);
+  const [confirmText, setConfirmText] = useState("");
+  const [rotating, setRotating] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -52,20 +65,43 @@ export default function CompaniesPage() {
     setTimeout(() => setCopiedId(null), 2000);
   }
 
-  async function regenerateKey(companyId) {
+  function openRotateDialog(company) {
+    setRotateTargetCompany(company);
+    setConfirmText("");
+  }
+
+  function handleRotateDialogChange(open) {
+    if (!open) {
+      setRotateTargetCompany(null);
+      setConfirmText("");
+      setRotating(false);
+    }
+  }
+
+  async function confirmRegenerateKey() {
+    if (!rotateTargetCompany) return;
+    if (confirmText.trim().toUpperCase() !== "CHANGE") return;
+
+    setRotating(true);
     try {
-      const res = await fetch(`/api/companies/${companyId}`, {
+      const res = await fetch(`/api/companies/${rotateTargetCompany._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ regenerateKey: true }),
       });
       if (!res.ok) throw new Error("Failed to regenerate key");
       toast.success("New Webhook API Key generated");
+      setRotateTargetCompany(null);
+      setConfirmText("");
       loadData();
     } catch (err) {
       toast.error(err.message);
+    } finally {
+      setRotating(false);
     }
   }
+
+  const canConfirmRotate = confirmText.trim().toUpperCase() === "CHANGE";
 
   const canCreate =
     user?.role === "SUPER_ADMIN" ||
@@ -167,7 +203,7 @@ export default function CompaniesPage() {
                           variant="ghost"
                           className="h-7 px-2 text-xs"
                           title="Regenerate API Key"
-                          onClick={() => regenerateKey(company._id)}
+                          onClick={() => openRotateDialog(company)}
                         >
                           <RefreshCw className="h-3.5 w-3.5" />
                         </Button>
@@ -202,6 +238,58 @@ export default function CompaniesPage() {
           </p>
         </Card>
       )}
+
+      <Dialog
+        open={!!rotateTargetCompany}
+        onOpenChange={handleRotateDialogChange}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Regenerate Webhook API Key?</DialogTitle>
+            <DialogDescription>
+              Regenerating the webhook API key for{" "}
+              <span className="font-semibold text-foreground">
+                {rotateTargetCompany?.name}
+              </span>{" "}
+              will immediately break any active website forms or Meta Ads
+              webhooks using the old URL until they are updated with the new
+              key.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-change">
+              Type <span className="font-mono font-semibold">CHANGE</span> to
+              confirm
+            </Label>
+            <Input
+              id="confirm-change"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="CHANGE"
+              autoComplete="off"
+              disabled={rotating}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => handleRotateDialogChange(false)}
+              disabled={rotating}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmRegenerateKey}
+              disabled={!canConfirmRotate || rotating}
+            >
+              {rotating ? "Regenerating…" : "Confirm & Regenerate Key"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
