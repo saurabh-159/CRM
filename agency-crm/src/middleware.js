@@ -38,6 +38,10 @@ export async function middleware(req) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
+  if (pathname.startsWith("/activity-logs") && user.role !== "SUPER_ADMIN") {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
+  }
+
   if (pathname.startsWith("/theme-settings") && user.role !== "SUPER_ADMIN") {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }

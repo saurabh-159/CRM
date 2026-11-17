@@ -83,7 +83,11 @@ export default function DashboardPage() {
 
       <StatsCards items={kpiItems} loading={loading} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div
+        className={
+          user?.role === "SUPER_ADMIN" ? "grid gap-6 lg:grid-cols-2" : "grid gap-6"
+        }
+      >
         {/* Recent Leads */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-3">
@@ -124,49 +128,54 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Recent Activity Timeline */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <History className="h-4 w-4 text-primary" />
-              <span>Recent Activity Logs</span>
-            </CardTitle>
-            {user?.role !== "USER" && (
+        {/* Recent Activity — Super Admin only */}
+        {user?.role === "SUPER_ADMIN" && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <History className="h-4 w-4 text-primary" />
+                <span>Recent Activity Logs</span>
+              </CardTitle>
               <Link href="/activity-logs" className="text-xs text-primary hover:underline">
                 Full audit log
               </Link>
-            )}
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="space-y-3">
-                {[1, 2, 3, 4].map((i) => (
-                  <Skeleton key={i} className="h-12 w-full rounded-lg" />
-                ))}
-              </div>
-            ) : data?.recentLogs?.length ? (
-              <div className="space-y-3">
-                {data.recentLogs.map((log) => (
-                  <div key={log._id} className="rounded-lg border p-3 text-xs space-y-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <Badge variant="outline" className="text-[10px]">
-                        {log.actionType}
-                      </Badge>
-                      <span className="text-muted-foreground">
-                        {format(new Date(log.createdAt), "dd MMM, hh:mm a")}
-                      </span>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full rounded-lg" />
+                  ))}
+                </div>
+              ) : data?.recentLogs?.length ? (
+                <div className="max-h-[320px] overflow-y-auto space-y-2 pr-1">
+                  {data.recentLogs.map((log) => (
+                    <div key={log._id} className="rounded-lg border p-3 text-xs space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Badge variant="outline" className="text-[10px] shrink-0">
+                            {log.actionType}
+                          </Badge>
+                          <Badge variant="secondary" className="text-[10px] shrink-0">
+                            {String(log.actorRole || "").replaceAll("_", " ")}
+                          </Badge>
+                        </div>
+                        <span className="text-muted-foreground shrink-0">
+                          {format(new Date(log.createdAt), "dd MMM, hh:mm a")}
+                        </span>
+                      </div>
+                      <p className="text-foreground/90 line-clamp-2">{log.description}</p>
                     </div>
-                    <p className="text-foreground/90">{log.description}</p>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground py-8 text-center">
-                No activity recorded yet.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground py-8 text-center">
+                  No activity recorded yet.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );

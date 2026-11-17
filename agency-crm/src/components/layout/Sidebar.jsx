@@ -58,7 +58,7 @@ export function getNavItemsForUser(user) {
     });
   }
 
-  if (user.role === "SUPER_ADMIN" || user.role === "ADMIN") {
+  if (user.role === "SUPER_ADMIN") {
     items.push({
       label: "Activity Logs",
       href: "/activity-logs",

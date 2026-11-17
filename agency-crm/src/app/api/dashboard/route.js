@@ -22,6 +22,8 @@ export async function GET() {
   const accessibleIds = await getAccessibleCompanyIds(user);
   const leadScope = accessibleIds === null ? {} : { companyId: { $in: accessibleIds } };
 
+  const isSuperAdmin = user.role === "SUPER_ADMIN";
+
   const [
     totalLeads,
     newLeads,
@@ -42,15 +44,17 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .limit(6)
       .lean(),
-    ActivityLog.find(leadScope)
-      .populate("companyId", "name")
-      .sort({ createdAt: -1 })
-      .limit(8)
-      .lean(),
+    isSuperAdmin
+      ? ActivityLog.find({})
+          .populate("companyId", "name")
+          .sort({ createdAt: -1 })
+          .limit(8)
+          .lean()
+      : Promise.resolve([]),
     accessibleIds === null
       ? Company.countDocuments()
       : Promise.resolve(accessibleIds.length),
-    user.role === "SUPER_ADMIN" ? User.countDocuments({ role: "ADMIN" }) : Promise.resolve(0),
+    isSuperAdmin ? User.countDocuments({ role: "ADMIN" }) : Promise.resolve(0),
     accessibleIds === null
       ? User.countDocuments({ role: "USER" })
       : User.countDocuments({ role: "USER", companyId: { $in: accessibleIds } }),
@@ -68,6 +72,6 @@ export async function GET() {
       totalUsers,
     },
     recentLeads,
-    recentLogs,
+    recentLogs: isSuperAdmin ? recentLogs : [],
   });
 }
