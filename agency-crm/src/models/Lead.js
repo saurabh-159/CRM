@@ -34,6 +34,10 @@ const LeadSchema = new mongoose.Schema(
     rawPayload: { type: mongoose.Schema.Types.Mixed, default: {} },
     notes: { type: [LeadNoteSchema], default: [] },
     lastUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+
+    // Google Sheets Row Tracking
+    masterSheetRowNumber: { type: Number, default: null },
+    clientSheetRowNumber: { type: Number, default: null },
   },
   { timestamps: true }
 );

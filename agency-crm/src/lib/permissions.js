@@ -6,12 +6,19 @@ export async function getFreshUserContext(sessionUser) {
   const dbUser = await User.findById(sessionUser.id).lean();
   if (!dbUser || !dbUser.isActive) return null;
 
+  let companyName = null;
+  if (dbUser.companyId) {
+    const company = await Company.findById(dbUser.companyId).select("name").lean();
+    companyName = company?.name || null;
+  }
+
   return {
     id: dbUser._id.toString(),
     name: dbUser.name,
     email: dbUser.email,
     role: dbUser.role,
     companyId: dbUser.companyId ? dbUser.companyId.toString() : null,
+    companyName,
     permissions: {
       canCreateCompany: Boolean(dbUser.permissions?.canCreateCompany),
       canCreateUser: Boolean(dbUser.permissions?.canCreateUser),

@@ -21,9 +21,10 @@ export function Topbar({ user }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  const currentTitle =
-    Object.entries(PAGE_TITLES).find(([path]) => pathname.startsWith(path))?.[1] ||
-    "CRM Workspace";
+  const currentTitle = pathname.match(/^\/companies\/[^/]+$/)
+    ? "Company Details"
+    : Object.entries(PAGE_TITLES).find(([path]) => pathname.startsWith(path))?.[1] ||
+      "CRM Workspace";
 
   async function handleLogout() {
     try {

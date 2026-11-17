@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { format } from "date-fns";
-import { MessageSquarePlus, Phone, Mail } from "lucide-react";
+import { Eye, Phone, Mail } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -14,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 
-export function LeadsTable({ leads, onSelectLead, showCompanyColumn = false }) {
+export function LeadsTable({ leads, showCompanyColumn = false }) {
   if (!leads.length) {
     return (
       <div className="rounded-xl border bg-card p-12 text-center">
@@ -44,8 +45,7 @@ export function LeadsTable({ leads, onSelectLead, showCompanyColumn = false }) {
           {leads.map((lead) => (
             <TableRow
               key={lead._id}
-              onClick={() => onSelectLead(lead)}
-              className="cursor-pointer bg-[var(--brand-white)] hover:bg-[var(--brand-cream)]/40 transition-colors"
+              className="bg-[var(--brand-white)] hover:bg-[var(--brand-cream)]/40 transition-colors"
             >
               <TableCell>
                 <p className="font-medium text-sm">{lead.name}</p>
@@ -93,17 +93,11 @@ export function LeadsTable({ leads, onSelectLead, showCompanyColumn = false }) {
               </TableCell>
 
               <TableCell className="text-right">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSelectLead(lead);
-                  }}
-                  className="gap-1.5"
-                >
-                  <MessageSquarePlus className="h-4 w-4" />
-                  <span>Manage</span>
+                <Button size="sm" variant="outline" asChild className="gap-1.5">
+                  <Link href={`/leads/${lead._id}`}>
+                    <Eye className="h-4 w-4" />
+                    <span>View</span>
+                  </Link>
                 </Button>
               </TableCell>
             </TableRow>

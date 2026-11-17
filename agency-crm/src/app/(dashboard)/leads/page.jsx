@@ -5,8 +5,8 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LeadFilters } from "@/components/leads/LeadFilters";
 import { LeadsTable } from "@/components/leads/LeadsTable";
-import { LeadDetailSheet } from "@/components/leads/LeadDetailSheet";
 import { LeadsSkeleton } from "@/components/leads/LeadsSkeleton";
+import GoogleSheetSyncCard from "@/components/GoogleSheetSyncCard";
 
 const INITIAL_FILTERS = {
   search: "",
@@ -22,7 +22,6 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState([]);
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [loading, setLoading] = useState(true);
-  const [selectedLead, setSelectedLead] = useState(null);
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -62,11 +61,6 @@ export default function LeadsPage() {
     return () => clearTimeout(timer);
   }, [fetchLeads]);
 
-  function handleLeadUpdated(updated) {
-    setLeads((prev) => prev.map((l) => (l._id === updated._id ? updated : l)));
-    setSelectedLead(updated);
-  }
-
   const isMultiCompanyRole = user?.role === "SUPER_ADMIN" || user?.role === "ADMIN";
 
   return (
@@ -84,6 +78,13 @@ export default function LeadsPage() {
         </Button>
       </div>
 
+      {user?.role === "USER" && user?.companyId && (
+        <GoogleSheetSyncCard
+          companyId={user.companyId}
+          companyName={user.companyName}
+        />
+      )}
+
       <LeadFilters
         filters={filters}
         onChange={setFilters}
@@ -95,19 +96,8 @@ export default function LeadsPage() {
       {loading ? (
         <LeadsSkeleton />
       ) : (
-        <LeadsTable
-          leads={leads}
-          onSelectLead={(lead) => setSelectedLead(lead)}
-          showCompanyColumn={isMultiCompanyRole}
-        />
+        <LeadsTable leads={leads} showCompanyColumn={isMultiCompanyRole} />
       )}
-
-      <LeadDetailSheet
-        lead={selectedLead}
-        open={Boolean(selectedLead)}
-        onClose={() => setSelectedLead(null)}
-        onLeadUpdated={handleLeadUpdated}
-      />
     </div>
   );
 }

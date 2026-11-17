@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatsCards } from "@/components/shared/StatsCards";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import GoogleSheetSyncCard from "@/components/GoogleSheetSyncCard";
 
 export default function DashboardPage() {
   const [data, setData] = useState(null);
@@ -82,6 +83,13 @@ export default function DashboardPage() {
       </div>
 
       <StatsCards items={kpiItems} loading={loading} />
+
+      {user?.role === "USER" && user?.companyId && (
+        <GoogleSheetSyncCard
+          companyId={user.companyId}
+          companyName={user.companyName}
+        />
+      )}
 
       <div
         className={

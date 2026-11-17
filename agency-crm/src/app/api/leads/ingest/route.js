@@ -3,8 +3,25 @@ import { connectDB } from "@/lib/db";
 import { Company } from "@/models/Company";
 import { Lead } from "@/models/Lead";
 import { recordActivity } from "@/lib/logger";
+import { syncLeadEverywhere } from "@/lib/googleSheets";
 
-// Meta Webhook Verification (GET request)
+const ALLOWED_STATUSES = [
+  "New",
+  "Contacted",
+  "Follow-Up",
+  "Interested",
+  "Converted",
+  "Junk",
+];
+
+function normalizeStatus(value) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const match = ALLOWED_STATUSES.find(
+    (status) => status.toLowerCase() === value.trim().toLowerCase()
+  );
+  return match || null;
+}
+
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const mode = searchParams.get("hub.mode");
@@ -23,7 +40,6 @@ export async function GET(req) {
   return NextResponse.json({ status: "Lead Ingest Webhook Active" });
 }
 
-// Universal Lead Receiver (Meta Ads, Zapier/Make, Website Forms)
 export async function POST(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -48,46 +64,104 @@ export async function POST(req) {
       );
     }
 
-    const payload = await req.json();
+    const body = await req.json();
 
-    // Flexible field extraction (supports Meta Ads, custom HTML forms, Zapier/Make)
     const name =
-      payload.full_name ||
-      payload.name ||
-      payload.first_name ||
-      payload.lead_name ||
+      body.full_name ||
+      body.name ||
+      body.first_name ||
+      body.lead_name ||
       "Unknown Lead";
 
-    const phone =
-      payload.phone_number ||
-      payload.phone ||
-      payload.mobile ||
-      payload.whatsapp ||
-      "";
+    const phone = String(
+      body.phone_number || body.phone || body.mobile || body.whatsapp || ""
+    ).trim();
 
-    const email = payload.email || payload.work_email || "";
+    const email = String(body.email || body.work_email || "")
+      .trim()
+      .toLowerCase();
 
-    const source = payload.source || payload.platform || "Meta Ads";
-    const campaignName = payload.campaign_name || payload.campaign || "";
-    const formName = payload.form_name || payload.form || "";
+    const source = body.source || body.platform || "Meta Ads";
+    const campaignName = String(
+      body.campaign_name || body.campaignName || body.utm_campaign || ""
+    ).trim();
+    const formName = body.form_name || body.form || "";
+
+    const resolvedStatus = normalizeStatus(body.status);
+    const status = resolvedStatus || "New";
+
+    // Upsert key = phone only. Match → update sent fields. No match → create new lead.
+    let existingLead = null;
+    if (phone) {
+      existingLead = await Lead.findOne({
+        companyId: company._id,
+        phone,
+      });
+    }
+
+    if (existingLead) {
+      if (name) existingLead.name = String(name).trim();
+      if (email) existingLead.email = email;
+      if (source) existingLead.source = String(source).trim();
+      if (campaignName) existingLead.campaignName = campaignName;
+      if (formName) existingLead.formName = String(formName).trim();
+      if (resolvedStatus) existingLead.status = resolvedStatus;
+
+      // Merge every key from the payload (budget, travel_month, etc.) into rawPayload
+      existingLead.rawPayload = {
+        ...(existingLead.rawPayload && typeof existingLead.rawPayload === "object"
+          ? existingLead.rawPayload
+          : {}),
+        ...body,
+      };
+      existingLead.markModified("rawPayload");
+
+      existingLead.notes.push({
+        text: "Lead re-submitted / updated via webhook",
+        addedBy: company.createdBy,
+        addedByName: "Webhook Sync",
+        addedByRole: "SYSTEM",
+        createdAt: new Date(),
+      });
+
+      await existingLead.save();
+      await syncLeadEverywhere(company, existingLead);
+
+      await recordActivity({
+        companyId: company._id.toString(),
+        actorName: "Webhook Sync",
+        actorRole: "SYSTEM",
+        actionType: "LEAD_UPDATED",
+        description: `Lead "${existingLead.name}" re-submitted / updated via webhook for ${company.name}`,
+        metadata: { leadId: existingLead._id.toString() },
+      });
+
+      return NextResponse.json({
+        success: true,
+        updated: true,
+        leadId: existingLead._id,
+      });
+    }
 
     const newLead = await Lead.create({
       companyId: company._id,
       name: String(name).trim(),
-      phone: String(phone).trim(),
-      email: String(email).trim().toLowerCase(),
+      phone,
+      email,
       source: String(source).trim(),
-      campaignName: String(campaignName).trim(),
+      campaignName,
       formName: String(formName).trim(),
-      status: "New",
-      rawPayload: payload,
+      status,
+      rawPayload: body,
     });
+
+    await syncLeadEverywhere(company, newLead);
 
     await recordActivity({
       companyId: company._id.toString(),
       actorName: `Webhook (${source})`,
       actorRole: "SYSTEM",
-      actionType: "LEAD_RECEIVED",
+      actionType: "LEAD_INGESTED",
       description: `New lead "${newLead.name}" received for ${company.name} via ${source}`,
       metadata: { leadId: newLead._id.toString() },
     });
@@ -95,8 +169,8 @@ export async function POST(req) {
     return NextResponse.json(
       {
         success: true,
-        leadId: newLead._id.toString(),
-        company: company.name,
+        created: true,
+        leadId: newLead._id,
       },
       { status: 201 }
     );

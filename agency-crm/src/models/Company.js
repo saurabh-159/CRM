@@ -19,6 +19,11 @@ const CompanySchema = new mongoose.Schema(
     },
     isActive: { type: Boolean, default: true },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+
+    // Google Sheets Multi-Tenant Sync Fields
+    googleSheetId: { type: String, default: "", trim: true },
+    sheetSyncEnabled: { type: Boolean, default: true },
+    lastSyncedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );
